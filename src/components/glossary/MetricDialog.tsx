@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -23,6 +24,7 @@ interface MetricDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   metric: GlossaryMetric | null;
+  allMetrics: GlossaryMetric[];
   onSave: (metric: GlossaryMetric) => void;
 }
 
@@ -35,9 +37,11 @@ const emptyMetric: GlossaryMetric = {
   synonyms: [],
   sqlPatterns: [{ id: crypto.randomUUID(), label: "", query: "" }],
   sampleQuestion: "",
+  relatedMetricIds: [],
+  changelog: [],
 };
 
-export const MetricDialog = ({ open, onOpenChange, metric, onSave }: MetricDialogProps) => {
+export const MetricDialog = ({ open, onOpenChange, metric, allMetrics, onSave }: MetricDialogProps) => {
   const [form, setForm] = useState<GlossaryMetric>(emptyMetric);
   const [synonymInput, setSynonymInput] = useState("");
 
@@ -78,6 +82,15 @@ export const MetricDialog = ({ open, onOpenChange, metric, onSave }: MetricDialo
     }));
   };
 
+  const toggleRelated = (id: string) => {
+    setForm((prev) => ({
+      ...prev,
+      relatedMetricIds: prev.relatedMetricIds.includes(id)
+        ? prev.relatedMetricIds.filter((r) => r !== id)
+        : [...prev.relatedMetricIds, id],
+    }));
+  };
+
   const handleSubmit = () => {
     const synonyms = synonymInput
       .split(",")
@@ -88,6 +101,7 @@ export const MetricDialog = ({ open, onOpenChange, metric, onSave }: MetricDialo
 
   const categories = CATEGORIES.filter((c) => c !== "All");
   const datasets = DATASETS.filter((d) => d !== "All Datasets");
+  const otherMetrics = allMetrics.filter((m) => m.id !== form.id);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -120,14 +134,10 @@ export const MetricDialog = ({ open, onOpenChange, metric, onSave }: MetricDialo
             <div>
               <Label>Category</Label>
               <Select value={form.category} onValueChange={(v) => updateField("category", v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -135,14 +145,10 @@ export const MetricDialog = ({ open, onOpenChange, metric, onSave }: MetricDialo
             <div>
               <Label>Dataset</Label>
               <Select value={form.dataset} onValueChange={(v) => updateField("dataset", v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {datasets.map((d) => (
-                    <SelectItem key={d} value={d}>
-                      {d}
-                    </SelectItem>
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -198,6 +204,26 @@ export const MetricDialog = ({ open, onOpenChange, metric, onSave }: MetricDialo
               ))}
             </div>
           </div>
+
+          {/* Related Metrics */}
+          {otherMetrics.length > 0 && (
+            <div>
+              <Label>Related Metrics</Label>
+              <p className="text-xs text-muted-foreground mb-2">Select metrics this KPI depends on or relates to</p>
+              <div className="max-h-32 overflow-y-auto rounded-md border border-border p-2 space-y-1.5">
+                {otherMetrics.map((m) => (
+                  <label key={m.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-accent rounded px-1.5 py-1">
+                    <Checkbox
+                      checked={form.relatedMetricIds.includes(m.id)}
+                      onCheckedChange={() => toggleRelated(m.id)}
+                    />
+                    <span className="text-foreground">{m.name}</span>
+                    <span className="text-xs text-muted-foreground ml-auto">{m.category}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <Label>Sample Question</Label>

@@ -4,6 +4,15 @@ export interface SqlPattern {
   query: string;
 }
 
+export interface ChangelogEntry {
+  id: string;
+  timestamp: string;
+  field: string;
+  oldValue: string;
+  newValue: string;
+  user: string;
+}
+
 export interface GlossaryMetric {
   id: string;
   name: string;
@@ -13,6 +22,8 @@ export interface GlossaryMetric {
   synonyms: string[];
   sqlPatterns: SqlPattern[];
   sampleQuestion: string;
+  relatedMetricIds: string[];
+  changelog: ChangelogEntry[];
 }
 
 export const CATEGORIES = [
@@ -52,6 +63,10 @@ export const SAMPLE_METRICS: GlossaryMetric[] = [
       { id: "s2", label: "Unpaid Invoices", query: "SELECT * FROM invoices WHERE paid = false" },
     ],
     sampleQuestion: "Show me all unpaid invoices",
+    relatedMetricIds: ["3", "12"],
+    changelog: [
+      { id: "c1", timestamp: "2025-12-15T10:30:00Z", field: "description", oldValue: "A financial record", newValue: "A bill or financial record for services provided during a patient visit", user: "Admin" },
+    ],
   },
   {
     id: "2",
@@ -64,6 +79,8 @@ export const SAMPLE_METRICS: GlossaryMetric[] = [
       { id: "s3", label: "Monthly GMV", query: "SELECT SUM(amount) FROM orders GROUP BY month" },
     ],
     sampleQuestion: "What is the GMV for last month?",
+    relatedMetricIds: ["3", "4"],
+    changelog: [],
   },
   {
     id: "3",
@@ -77,6 +94,10 @@ export const SAMPLE_METRICS: GlossaryMetric[] = [
       { id: "s5", label: "Revenue by Region", query: "SELECT region, SUM(revenue) FROM transactions GROUP BY region" },
     ],
     sampleQuestion: "What's our total revenue?",
+    relatedMetricIds: ["1", "2", "12", "11"],
+    changelog: [
+      { id: "c2", timestamp: "2026-01-10T14:00:00Z", field: "synonyms", oldValue: "Income, Earnings", newValue: "Income, Earnings, Sales", user: "Admin" },
+    ],
   },
   {
     id: "4",
@@ -89,6 +110,8 @@ export const SAMPLE_METRICS: GlossaryMetric[] = [
       { id: "s6", label: "AOV Calculation", query: "SELECT AVG(order_total) FROM orders" },
     ],
     sampleQuestion: "Show AOV trend by month",
+    relatedMetricIds: ["2", "3"],
+    changelog: [],
   },
   {
     id: "5",
@@ -101,6 +124,8 @@ export const SAMPLE_METRICS: GlossaryMetric[] = [
       { id: "s7", label: "CAC by Channel", query: "SELECT channel, SUM(spend)/COUNT(new_customers) FROM marketing GROUP BY channel" },
     ],
     sampleQuestion: "What is our CAC by channel?",
+    relatedMetricIds: ["6", "8"],
+    changelog: [],
   },
   {
     id: "6",
@@ -113,6 +138,8 @@ export const SAMPLE_METRICS: GlossaryMetric[] = [
       { id: "s8", label: "Average LTV", query: "SELECT AVG(lifetime_value) FROM customers" },
     ],
     sampleQuestion: "What is the average customer LTV?",
+    relatedMetricIds: ["5", "7", "3"],
+    changelog: [],
   },
   {
     id: "7",
@@ -125,6 +152,8 @@ export const SAMPLE_METRICS: GlossaryMetric[] = [
       { id: "s9", label: "Monthly Churn", query: "SELECT month, churned/total AS churn_rate FROM customer_stats" },
     ],
     sampleQuestion: "What is our monthly churn rate?",
+    relatedMetricIds: ["6", "10"],
+    changelog: [],
   },
   {
     id: "8",
@@ -137,6 +166,8 @@ export const SAMPLE_METRICS: GlossaryMetric[] = [
       { id: "s10", label: "Overall CVR", query: "SELECT conversions/visits AS cvr FROM funnel_data" },
     ],
     sampleQuestion: "What is our conversion rate this quarter?",
+    relatedMetricIds: ["5", "9"],
+    changelog: [],
   },
   {
     id: "9",
@@ -149,6 +180,8 @@ export const SAMPLE_METRICS: GlossaryMetric[] = [
       { id: "s11", label: "DAU Trend", query: "SELECT date, COUNT(DISTINCT user_id) FROM events GROUP BY date" },
     ],
     sampleQuestion: "Show DAU for the past 30 days",
+    relatedMetricIds: ["8", "11"],
+    changelog: [],
   },
   {
     id: "10",
@@ -161,6 +194,8 @@ export const SAMPLE_METRICS: GlossaryMetric[] = [
       { id: "s12", label: "Current NPS", query: "SELECT (promoters - detractors) / total * 100 FROM surveys" },
     ],
     sampleQuestion: "What is our current NPS?",
+    relatedMetricIds: ["7", "6"],
+    changelog: [],
   },
   {
     id: "11",
@@ -173,6 +208,8 @@ export const SAMPLE_METRICS: GlossaryMetric[] = [
       { id: "s13", label: "Monthly ARPU", query: "SELECT month, SUM(revenue)/COUNT(DISTINCT user_id) FROM transactions GROUP BY month" },
     ],
     sampleQuestion: "What is ARPU this month?",
+    relatedMetricIds: ["3", "9"],
+    changelog: [],
   },
   {
     id: "12",
@@ -185,5 +222,7 @@ export const SAMPLE_METRICS: GlossaryMetric[] = [
       { id: "s14", label: "MRR Growth", query: "SELECT month, SUM(subscription_amount) FROM subscriptions WHERE active = true GROUP BY month" },
     ],
     sampleQuestion: "What is our MRR trend?",
+    relatedMetricIds: ["3", "1"],
+    changelog: [],
   },
 ];

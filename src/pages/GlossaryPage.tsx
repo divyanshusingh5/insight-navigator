@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { Search, Filter, LayoutGrid, LayoutList, Plus, BookOpen, ChevronDown } from "lucide-react";
+import { Search, Filter, LayoutGrid, LayoutList, Plus, BookOpen, ChevronDown, Star } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { CATEGORIES, DATASETS, SAMPLE_METRICS, type GlossaryMetric } from "@/data/glossaryData";
+import { CATEGORIES, DATASETS, SAMPLE_METRICS, type GlossaryMetric, type ChangelogEntry } from "@/data/glossaryData";
 import { GlossaryTable } from "@/components/glossary/GlossaryTable";
 import { GlossaryCards } from "@/components/glossary/GlossaryCards";
 import { MetricDialog } from "@/components/glossary/MetricDialog";
+import { ChangelogDialog } from "@/components/glossary/ChangelogDialog";
+import { LineageDialog } from "@/components/glossary/LineageDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +23,18 @@ const GlossaryPage = () => {
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMetric, setEditingMetric] = useState<GlossaryMetric | null>(null);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [changelogMetric, setChangelogMetric] = useState<GlossaryMetric | null>(null);
+  const [lineageMetric, setLineageMetric] = useState<GlossaryMetric | null>(null);
+
+  const toggleFavorite = (id: string) => {
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const filtered = metrics.filter((m) => {
     const matchesSearch =
@@ -32,6 +45,13 @@ const GlossaryPage = () => {
     const matchesCategory = activeCategory === "All" || m.category === activeCategory;
     const matchesDataset = activeDataset === "All Datasets" || m.dataset === activeDataset;
     return matchesSearch && matchesCategory && matchesDataset;
+  });
+
+  // Sort: favorites first
+  const sorted = [...filtered].sort((a, b) => {
+    const aFav = favorites.has(a.id) ? 0 : 1;
+    const bFav = favorites.has(b.id) ? 0 : 1;
+    return aFav - bFav;
   });
 
   const categoryCounts = CATEGORIES.reduce((acc, cat) => {
@@ -58,9 +78,49 @@ const GlossaryPage = () => {
 
   const handleSave = (metric: GlossaryMetric) => {
     if (editingMetric) {
-      setMetrics((prev) => prev.map((m) => (m.id === metric.id ? metric : m)));
+      // Generate changelog entries for changed fields
+      const changes: ChangelogEntry[] = [];
+      const oldMetric = metrics.find((m) => m.id === metric.id);
+      if (oldMetric) {
+        const fields: (keyof GlossaryMetric)[] = ["name", "description", "category", "dataset", "sampleQuestion"];
+        fields.forEach((field) => {
+          if (String(oldMetric[field]) !== String(metric[field])) {
+            changes.push({
+              id: crypto.randomUUID(),
+              timestamp: new Date().toISOString(),
+              field,
+              oldValue: String(oldMetric[field]),
+              newValue: String(metric[field]),
+              user: "You",
+            });
+          }
+        });
+        if (oldMetric.synonyms.join(", ") !== metric.synonyms.join(", ")) {
+          changes.push({
+            id: crypto.randomUUID(),
+            timestamp: new Date().toISOString(),
+            field: "synonyms",
+            oldValue: oldMetric.synonyms.join(", "),
+            newValue: metric.synonyms.join(", "),
+            user: "You",
+          });
+        }
+      }
+      const updatedMetric = {
+        ...metric,
+        changelog: [...(metric.changelog || []), ...changes],
+      };
+      setMetrics((prev) => prev.map((m) => (m.id === metric.id ? updatedMetric : m)));
     } else {
-      setMetrics((prev) => [...prev, { ...metric, id: crypto.randomUUID() }]);
+      setMetrics((prev) => [
+        ...prev,
+        {
+          ...metric,
+          id: crypto.randomUUID(),
+          relatedMetricIds: metric.relatedMetricIds || [],
+          changelog: [],
+        },
+      ]);
     }
     setEditingMetric(null);
     setDialogOpen(false);
@@ -108,7 +168,6 @@ const GlossaryPage = () => {
       <div className="border-b border-border bg-card">
         <div className="mx-auto max-w-7xl px-6 py-3">
           <div className="flex flex-wrap items-center gap-3">
-            {/* Search */}
             <div className="relative flex-1 min-w-[220px] max-w-sm">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -119,7 +178,6 @@ const GlossaryPage = () => {
               />
             </div>
 
-            {/* Dataset Filter */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="gap-2">
@@ -141,7 +199,14 @@ const GlossaryPage = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* View Toggle */}
+            {/* Favorites count */}
+            {favorites.size > 0 && (
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                <span>{favorites.size} pinned</span>
+              </div>
+            )}
+
             <div className="ml-auto flex items-center gap-1 rounded-lg border border-border p-0.5">
               <button
                 onClick={() => setViewMode("table")}
@@ -166,7 +231,6 @@ const GlossaryPage = () => {
             </div>
           </div>
 
-          {/* Category Pills */}
           <div className="mt-3 flex flex-wrap gap-2">
             {CATEGORIES.map((cat) => (
               <button
@@ -194,16 +258,34 @@ const GlossaryPage = () => {
 
       {/* Content */}
       <div className="mx-auto max-w-7xl px-6 py-6">
-        {filtered.length === 0 ? (
+        {sorted.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <BookOpen className="h-12 w-12 text-muted-foreground/40 mb-4" />
             <p className="text-lg font-medium text-foreground">No metrics found</p>
             <p className="text-sm text-muted-foreground mt-1">Try adjusting your search or filters</p>
           </div>
         ) : viewMode === "table" ? (
-          <GlossaryTable metrics={filtered} onEdit={handleEdit} onDelete={handleDelete} />
+          <GlossaryTable
+            metrics={sorted}
+            allMetrics={metrics}
+            favorites={favorites}
+            onToggleFavorite={toggleFavorite}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onShowChangelog={setChangelogMetric}
+            onShowLineage={setLineageMetric}
+          />
         ) : (
-          <GlossaryCards metrics={filtered} onEdit={handleEdit} onDelete={handleDelete} />
+          <GlossaryCards
+            metrics={sorted}
+            allMetrics={metrics}
+            favorites={favorites}
+            onToggleFavorite={toggleFavorite}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onShowChangelog={setChangelogMetric}
+            onShowLineage={setLineageMetric}
+          />
         )}
       </div>
 
@@ -211,7 +293,19 @@ const GlossaryPage = () => {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         metric={editingMetric}
+        allMetrics={metrics}
         onSave={handleSave}
+      />
+
+      <ChangelogDialog
+        metric={changelogMetric}
+        onClose={() => setChangelogMetric(null)}
+      />
+
+      <LineageDialog
+        metric={lineageMetric}
+        allMetrics={metrics}
+        onClose={() => setLineageMetric(null)}
       />
     </div>
   );
